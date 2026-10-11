@@ -506,10 +506,10 @@ select_release_assets() {
 }
 
 package_archive_digest() {
-  asset="$1"
+  target_asset="$1"
   manifest_path="$2"
 
-  digest="$(awk -v asset="$asset" '
+  digest="$(awk -v asset="$target_asset" '
     $2 == asset && length($1) == 64 && $1 !~ /[^0-9a-fA-F]/ {
       print tolower($1)
       found = 1
@@ -553,9 +553,9 @@ file_sha256() {
 }
 
 verify_archive_digest() {
-  archive_path="$1"
+  archive_file="$1"
   expected_digest="$2"
-  actual_digest="$(file_sha256 "$archive_path")"
+  actual_digest="$(file_sha256 "$archive_file")"
 
   if [ "$actual_digest" != "$expected_digest" ]; then
     echo "Downloaded Codex archive checksum did not match expected digest." >&2
