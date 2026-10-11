@@ -156,6 +156,41 @@ class InstallShTest(unittest.TestCase):
                 ],
             )
 
+    def test_package_archive_download_does_not_overwrite_checksum_manifest(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            archive_path, checksum_path, metadata_json = create_package_release(root)
+
+            result, _requests = run_installer_in(
+                root,
+                "latest",
+                metadata_json=metadata_json,
+                archive_path=archive_path,
+                checksum_path=checksum_path,
+                force_macos=True,
+                use_mirror=None,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            destinations = (
+                (root / "destinations.log").read_text(encoding="utf-8").splitlines()
+            )
+            self.assertEqual(
+                destinations,
+                [
+                    (
+                        f"https://releases.openai.com/codex/releases/{VERSION}/codex-package_SHA256SUMS"
+                        "\tcodex-package_SHA256SUMS"
+                    ),
+                    (
+                        f"https://releases.openai.com/codex/releases/{VERSION}/codex-package-aarch64-apple-darwin.tar.gz"
+                        "\tcodex-package-aarch64-apple-darwin.tar.gz"
+                    ),
+                ],
+            )
+
     def test_daemon_install_preserves_visible_cli_and_profile(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir).resolve()
@@ -752,6 +787,9 @@ def run_installer_in(
               previous="$arg"
             done
             printf '%s\n' "$url" >>"$CODEX_TEST_REQUEST_LOG"
+            if [ -n "$CODEX_TEST_DESTINATION_LOG" ] && [ -n "$output" ]; then
+              printf '%s\t%s\n' "$url" "$(basename "$output")" >>"$CODEX_TEST_DESTINATION_LOG"
+            fi
 
             case "$url" in
               https://api.github.com/*)
@@ -884,6 +922,7 @@ def run_installer_in(
             ),
             "CODEX_TEST_RELEASES_MODE": releases_mode,
             "CODEX_TEST_REQUEST_LOG": str(request_log),
+            "CODEX_TEST_DESTINATION_LOG": str(root / "destinations.log"),
             "HOME": str(home),
             "PATH": f"{bin_dir}:/usr/bin:/bin",
             "SHELL": "/bin/sh",
